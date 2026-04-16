@@ -3,7 +3,6 @@
 local voucherId = ARGV[1]
 -- 1.2.用户id
 local userId = ARGV[2]
-
 -- 2.数据key
 -- 2.1.库存key
 local stockKey = 'seckill:stock:' .. voucherId
@@ -12,7 +11,8 @@ local orderKey = 'seckill:order:' .. voucherId
 
 -- 3.脚本业务
 -- 3.1.判断库存是否充足 get stockKey
-if(tonumber(redis.call('get', stockKey)) <= 0) then
+if(tonumber(redis.call('get', stockKey)) <= 0) then -- redis.call：调用redis命令
+    -- tonumber：redis原本读出来的是字符串，把它转成数字再比较
     -- 3.2.库存不足，返回1
     return 1
 end
