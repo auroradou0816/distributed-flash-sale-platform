@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -145,7 +146,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 判断
         if (!isLock) {
             // 获取锁失败，直接返回失败或者重试
-            log.error("不允许重复下单！userId={}, voucherId={}", userId, voucherId);
+            log.info("用户正在重复下单，直接返回，userId={}, voucherId={}", userId, voucherId);
             return;
         }
 
@@ -155,7 +156,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             // 5.2.判断是否存在
             if (count > 0) {
                 // 用户已经购买过了
-                log.error("不允许重复下单！userId={}, voucherId={}", userId, voucherId);
+                log.info("用户已存在订单，直接确认消息，userId={}, voucherId={}", userId, voucherId);
                 return;
             }
 
@@ -171,8 +172,13 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             }
 
             // 7.创建订单
-            save(voucherOrder);
-            log.debug("秒杀订单落库成功，orderId={}", voucherOrder.getId());
+            try {
+                save(voucherOrder);
+                log.debug("秒杀订单落库成功，orderId={}", voucherOrder.getId());
+            } catch (DuplicateKeyException e) {
+                log.info("检测到数据库唯一键冲突，视为重复消息，orderId={}, userId={}, voucherId={}",
+                        voucherOrder.getId(), userId, voucherId);
+            }
         } finally {
             // 释放锁
             redisLock.unlock();

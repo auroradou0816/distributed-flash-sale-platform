@@ -27,6 +27,10 @@ public class SeckillOrderConsumer implements RocketMQListener<VoucherOrder>, Roc
 
     @Override
     public void onMessage(VoucherOrder voucherOrder) {
+        if (voucherOrderService.getById(voucherOrder.getId()) != null) {
+            log.info("检测到重复投递，orderId={}，直接确认消息", voucherOrder.getId());
+            return;
+        }
         log.debug("收到秒杀订单消息，orderId={}, userId={}, voucherId={}",
                 voucherOrder.getId(), voucherOrder.getUserId(), voucherOrder.getVoucherId());
         voucherOrderService.createVoucherOrder(voucherOrder);
