@@ -9,7 +9,13 @@ IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
 
 JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn -DskipTests clean package
 
-docker build -t "${ECR_REPO}:${IMAGE_TAG}" .
+# Ensure amd64 output so the image runs on EC2 t3.small (x86_64)
+docker buildx create --use --name hmdp-builder >/dev/null 2>&1 || docker buildx use hmdp-builder
+docker buildx build \
+  --platform linux/amd64 \
+  -t "${ECR_REPO}:${IMAGE_TAG}" \
+  --load \
+  .
 
 docker tag "${ECR_REPO}:${IMAGE_TAG}" "${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
 docker tag "${ECR_REPO}:${IMAGE_TAG}" "${ECR_REGISTRY}/${ECR_REPO}:latest"
