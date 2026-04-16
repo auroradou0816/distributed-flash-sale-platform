@@ -1,0 +1,1 @@
+{"requests": 1000, "duration_seconds": 0.885, "qps": 1129.94, "p50_ms": 17.0, "p95_ms": 140.0, "p99_ms": 150.0, "error_rate_pct": 0.0}

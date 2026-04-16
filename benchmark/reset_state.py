@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import subprocess
 from datetime import datetime, timedelta
 
 import pymysql
@@ -75,6 +76,7 @@ def reset_redis(args):
     stock_key = f"seckill:stock:{args.voucher_id}"
     order_key = f"seckill:order:{args.voucher_id}"
     stream_key = "stream.orders"
+    client.delete(stock_key)
     client.set(stock_key, args.stock)
     client.delete(order_key)
     client.delete(stream_key)
@@ -83,6 +85,39 @@ def reset_redis(args):
     except redis.ResponseError as exc:
         if "BUSYGROUP" not in str(exc):
             raise
+
+
+def reset_mq_offsets(args):
+    if not args.mq_reset_offsets:
+        return {"enabled": False, "reset": False}
+
+    command = [
+        args.mqadmin_bin,
+        "resetOffsetByTime",
+        "-n",
+        args.mq_name_server,
+        "-g",
+        args.mq_consumer_group,
+        "-t",
+        args.mq_topic,
+        "-s",
+        args.mq_reset_timestamp,
+    ]
+    if args.mq_force_reset:
+        command.extend(["-f", "true"])
+
+    completed = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return {
+        "enabled": True,
+        "reset": True,
+        "command": command,
+        "stdout": completed.stdout.strip(),
+    }
 
 
 def main():
@@ -97,10 +132,18 @@ def main():
     parser.add_argument("--redis-host", default=os.getenv("REDIS_HOST", "127.0.0.1"))
     parser.add_argument("--redis-port", type=int, default=int(os.getenv("REDIS_PORT", "6380")))
     parser.add_argument("--redis-password", default=os.getenv("REDIS_PASSWORD", ""))
+    parser.add_argument("--mq-reset-offsets", action="store_true")
+    parser.add_argument("--mqadmin-bin", default=os.getenv("MQADMIN_BIN", "mqadmin"))
+    parser.add_argument("--mq-name-server", default=os.getenv("MQ_NAME_SERVER", "localhost:9876"))
+    parser.add_argument("--mq-consumer-group", default=os.getenv("MQ_CONSUMER_GROUP", "seckill-order-consumer-group"))
+    parser.add_argument("--mq-topic", default=os.getenv("MQ_TOPIC", "seckill-order-topic"))
+    parser.add_argument("--mq-reset-timestamp", default=os.getenv("MQ_RESET_TIMESTAMP", "now"))
+    parser.add_argument("--mq-force-reset", action="store_true")
     args = parser.parse_args()
 
     reset_mysql(args)
     reset_redis(args)
+    mq_result = reset_mq_offsets(args)
     print(
         json.dumps(
             {
@@ -108,6 +151,7 @@ def main():
                 "stock": args.stock,
                 "mysql": f"{args.mysql_host}:{args.mysql_port}/{args.mysql_db}",
                 "redis": f"{args.redis_host}:{args.redis_port}",
+                "mq": mq_result,
             },
             ensure_ascii=False,
         )

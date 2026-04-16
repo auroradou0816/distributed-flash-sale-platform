@@ -1,0 +1,1 @@
+{"order_count": 100, "distinct_users": 100, "db_stock": 0, "redis_stock": 0, "redis_order_count": 100, "pending_messages": 0, "expected_orders": 100, "initial_stock": 100, "pending_cleared": true, "consistent": true}

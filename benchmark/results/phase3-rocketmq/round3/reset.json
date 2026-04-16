@@ -1,0 +1,1 @@
+{"voucher_id": 10, "stock": 100, "mysql": "127.0.0.1:3306/hmdp", "redis": "127.0.0.1:6380", "mq": {"enabled": false, "reset": false}}

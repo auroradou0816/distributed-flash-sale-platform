@@ -1,0 +1,9 @@
+#Topic                                                            #Broker Name                      #QID  #Broker Offset        #Consumer Offset      #Diff                #Inflight           #LastTime
+seckill-order-topic                                               broker-a                          0     81                    81                    0                    0                    2026-04-16 10:35:06
+seckill-order-topic                                               broker-a                          1     72                    72                    0                    0                    2026-04-16 10:35:06
+seckill-order-topic                                               broker-a                          2     68                    68                    0                    0                    2026-04-16 10:35:06
+seckill-order-topic                                               broker-a                          3     81                    81                    0                    0                    2026-04-16 10:35:06
+
+Consume TPS: 3.33
+Consume Diff Total: 0
+Consume Inflight Total: 0
