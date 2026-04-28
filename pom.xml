@@ -11,8 +11,8 @@
     <groupId>com.hmdp</groupId>
     <artifactId>hm-dianping</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>hm-dianping</name>
-    <description>Demo project for Spring Boot</description>
+    <name>Distributed Flash-Sale Order Platform</name>
+    <description>Spring Boot flash-sale platform with RocketMQ async order pipeline, idempotent consumers, and AWS deployment</description>
     <properties>
         <java.version>1.8</java.version>
     </properties>
