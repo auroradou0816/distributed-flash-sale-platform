@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# macOS
+.DS_Store
+
+# Personal notes (not part of deliverable)
+aws-notes/
+
+# Benchmark runtime logs
+jmeter.log
