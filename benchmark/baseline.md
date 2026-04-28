@@ -18,10 +18,10 @@
 
 ## Redis / MySQL Config
 
-- MySQL：Homebrew `mysql@8.0`，版本 `8.0.45`，`127.0.0.1:3306/hmdp`
+- MySQL：Homebrew `mysql@8.0`，版本 `8.0.45`，`127.0.0.1:3306/flash_sale`
 - Redis：Homebrew `redis`，版本 `8.6.2`，`127.0.0.1:6380`，无密码
 - Redis 配置文件：`benchmark/redis-local.conf`
-- 数据初始化：`src/main/resources/db/hmdp.sql`
+- 数据初始化：`src/main/resources/db/schema.sql`
 - Benchmark profile：`src/test/resources/application-benchmark.yaml`
 
 说明：

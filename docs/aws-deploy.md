@@ -1,6 +1,6 @@
-# AWS Deployment — hm-dianping Phase 5
+# AWS Deployment — Distributed Flash-Sale Order Platform
 
-End-to-end recipe for deploying hm-dianping (Spring Boot + MySQL + Redis + RocketMQ) to AWS. Verified reproducible on region `us-east-1`, 2026-04-16.
+End-to-end recipe for deploying the Distributed Flash-Sale Order Platform (Spring Boot + MySQL + Redis + RocketMQ) to AWS. Verified reproducible on region `us-east-1`, 2026-04-16.
 
 All commands below run from the repo root on a laptop with `awscli` v2 and Docker (with buildx) installed. Real resource IDs live in `aws-notes/resources.txt` (gitignored). The doc uses shell variables throughout so you can copy sections verbatim.
 
@@ -18,9 +18,9 @@ All commands below run from the repo root on a laptop with `awscli` v2 and Docke
          │                                                           │
          │   public subnets (a / b)                                  │
          │   ┌──────────────────┐       ┌──────────────────┐         │
-         │   │ hmdp-app-host    │──────▶│ hmdp-rmq-host    │  9876   │
+         │   │ app-host         │──────▶│ rmq-host         │  9876   │
          │   │ t3.small         │ 10911 │ RocketMQ         │         │
-         │   │ docker: hmdp-app │       │ namesrv + broker │         │
+         │   │ docker: app      │       │ namesrv + broker │         │
          │   └────────┬─────────┘       └──────────────────┘         │
          │            │ 3306            │ 6379                       │
          │            ▼                 ▼                            │
@@ -68,7 +68,7 @@ App is packaged as a linux/amd64 image via buildx (Apple Silicon hosts otherwise
 `scripts/deploy.sh` does:
 
 ```bash
-docker buildx create --use --name hmdp-builder 2>/dev/null || docker buildx use hmdp-builder
+docker buildx create --use --name flash-sale-builder 2>/dev/null || docker buildx use flash-sale-builder
 docker buildx build --platform linux/amd64 \
   -t "${ECR_REPO}:${IMAGE_TAG}" --load .
 aws ecr get-login-password --region us-east-1 | \
@@ -79,7 +79,7 @@ docker push "${ECR_REPO}:${IMAGE_TAG}"
 Verify:
 
 ```bash
-aws ecr describe-images --repository-name hmdp-dianping \
+aws ecr describe-images --repository-name flash-sale-platform \
   --query 'sort_by(imageDetails,&imagePushedAt)[-1].{Tags:imageTags,Size:imageSizeInBytes}'
 ```
 
@@ -126,13 +126,13 @@ aws ec2 associate-route-table --route-table-id $PUB_RT --subnet-id $PUB_SUBNET_B
 ### 4.2 Security groups
 
 ```bash
-APP_SG=$(aws ec2 create-security-group --group-name hmdp-app-sg \
-  --description "hmdp app" --vpc-id $VPC_ID --query GroupId --output text)
-RMQ_SG=$(aws ec2 create-security-group --group-name hmdp-rmq-sg \
+APP_SG=$(aws ec2 create-security-group --group-name flash-sale-app-sg \
+  --description "flash sale app" --vpc-id $VPC_ID --query GroupId --output text)
+RMQ_SG=$(aws ec2 create-security-group --group-name flash-sale-rmq-sg \
   --description "RocketMQ" --vpc-id $VPC_ID --query GroupId --output text)
-RDS_SG=$(aws ec2 create-security-group --group-name hmdp-rds-sg \
+RDS_SG=$(aws ec2 create-security-group --group-name flash-sale-rds-sg \
   --description "RDS MySQL" --vpc-id $VPC_ID --query GroupId --output text)
-REDIS_SG=$(aws ec2 create-security-group --group-name hmdp-redis-sg \
+REDIS_SG=$(aws ec2 create-security-group --group-name flash-sale-redis-sg \
   --description "ElastiCache" --vpc-id $VPC_ID --query GroupId --output text)
 
 # Laptop -> app
@@ -157,25 +157,25 @@ aws ec2 authorize-security-group-ingress --group-id $RMQ_SG \
 ### 4.3 RDS MySQL
 
 ```bash
-aws rds create-db-subnet-group --db-subnet-group-name hmdp-db-subnets \
-  --db-subnet-group-description "hmdp private" \
+aws rds create-db-subnet-group --db-subnet-group-name flash-sale-db-subnets \
+  --db-subnet-group-description "flash sale private" \
   --subnet-ids $PRIV_SUBNET_A $PRIV_SUBNET_B
 
 aws rds create-db-instance \
-  --db-instance-identifier hmdp-mysql \
+  --db-instance-identifier flash-sale-mysql \
   --db-instance-class db.t3.micro \
   --engine mysql --engine-version 8.0.35 \
-  --master-username hmdpadmin \
+  --master-username appadmin \
   --master-user-password "$(openssl rand -base64 24 | tr -d '/+=')" \
   --allocated-storage 20 --storage-type gp2 \
   --vpc-security-group-ids $RDS_SG \
-  --db-subnet-group-name hmdp-db-subnets \
+  --db-subnet-group-name flash-sale-db-subnets \
   --no-publicly-accessible \
   --backup-retention-period 0
 # Save the generated password to aws-notes/secrets.txt immediately.
 
-aws rds wait db-instance-available --db-instance-identifier hmdp-mysql
-DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier hmdp-mysql \
+aws rds wait db-instance-available --db-instance-identifier flash-sale-mysql
+DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier flash-sale-mysql \
   --query 'DBInstances[0].Endpoint.Address' --output text)
 ```
 
@@ -183,20 +183,20 @@ DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier hmdp-mysql 
 
 ```bash
 aws elasticache create-cache-subnet-group \
-  --cache-subnet-group-name hmdp-redis-subnets \
-  --cache-subnet-group-description "hmdp private" \
+  --cache-subnet-group-name flash-sale-redis-subnets \
+  --cache-subnet-group-description "flash sale private" \
   --subnet-ids $PRIV_SUBNET_A $PRIV_SUBNET_B
 
 aws elasticache create-cache-cluster \
-  --cache-cluster-id hmdp-redis \
+  --cache-cluster-id flash-sale-redis \
   --engine redis --cache-node-type cache.t3.micro \
   --num-cache-nodes 1 \
   --security-group-ids $REDIS_SG \
-  --cache-subnet-group-name hmdp-redis-subnets
+  --cache-subnet-group-name flash-sale-redis-subnets
 
-aws elasticache wait cache-cluster-available --cache-cluster-id hmdp-redis
+aws elasticache wait cache-cluster-available --cache-cluster-id flash-sale-redis
 REDIS_ENDPOINT=$(aws elasticache describe-cache-clusters \
-  --cache-cluster-id hmdp-redis --show-cache-node-info \
+  --cache-cluster-id flash-sale-redis --show-cache-node-info \
   --query 'CacheClusters[0].CacheNodes[0].Endpoint.Address' --output text)
 ```
 
@@ -220,27 +220,27 @@ AMI_ID=$(aws ec2 describe-images --owners amazon \
 ### 5.2 Key pair + instances
 
 ```bash
-aws ec2 create-key-pair --key-name hmdp-keypair --key-type rsa \
-  --query KeyMaterial --output text > ~/.ssh/hmdp-keypair.pem
-chmod 400 ~/.ssh/hmdp-keypair.pem
+aws ec2 create-key-pair --key-name flash-sale-keypair --key-type rsa \
+  --query KeyMaterial --output text > ~/.ssh/flash-sale-keypair.pem
+chmod 400 ~/.ssh/flash-sale-keypair.pem
 
 # AL2023 snapshot floor = 30 GB. Do NOT use 10/20 GB.
 APP_INSTANCE=$(aws ec2 run-instances \
   --image-id $AMI_ID --instance-type t3.small \
-  --key-name hmdp-keypair \
+  --key-name flash-sale-keypair \
   --security-group-ids $APP_SG --subnet-id $PUB_SUBNET_A \
   --associate-public-ip-address \
   --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=30,VolumeType=gp3}' \
-  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=hmdp-app-host}]' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=flash-sale-app-host}]' \
   --query 'Instances[0].InstanceId' --output text)
 
 RMQ_INSTANCE=$(aws ec2 run-instances \
   --image-id $AMI_ID --instance-type t3.small \
-  --key-name hmdp-keypair \
+  --key-name flash-sale-keypair \
   --security-group-ids $RMQ_SG --subnet-id $PUB_SUBNET_A \
   --associate-public-ip-address \
   --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=30,VolumeType=gp3}' \
-  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=hmdp-rmq-host}]' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=flash-sale-rmq-host}]' \
   --query 'Instances[0].InstanceId' --output text)
 
 aws ec2 wait instance-running --instance-ids $APP_INSTANCE $RMQ_INSTANCE
@@ -253,14 +253,14 @@ RMQ_PRIVATE_IP=$(aws ec2 describe-instances --instance-ids $RMQ_INSTANCE \
   --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
 ```
 
-> Optional `--iam-instance-profile Name=hmdp-ec2-profile` lets the app-host pull from ECR via instance metadata instead of a laptop-generated token. Requires `iam:CreateInstanceProfile` + `iam:AddRoleToInstanceProfile` on the caller. If those aren't granted, omit the flag and use the 12-hour ECR token flow in §7.
+> Optional `--iam-instance-profile Name=flash-sale-ec2-profile` lets the app-host pull from ECR via instance metadata instead of a laptop-generated token. Requires `iam:CreateInstanceProfile` + `iam:AddRoleToInstanceProfile` on the caller. If those aren't granted, omit the flag and use the 12-hour ECR token flow in §7.
 
 ---
 
 ## 6. Bring up RocketMQ on rmq-host (Phase 5d.2)
 
 ```bash
-ssh -i ~/.ssh/hmdp-keypair.pem ec2-user@$RMQ_PUBLIC_IP bash <<EOF
+ssh -i ~/.ssh/flash-sale-keypair.pem ec2-user@$RMQ_PUBLIC_IP bash <<EOF
 sudo dnf install -y docker
 sudo systemctl enable --now docker
 mkdir -p ~/rocketmq/conf
@@ -309,20 +309,20 @@ The broker[broker-a, <RMQ_PRIVATE_IP>:10911] boot success
 ### 7.1 Seed schema
 
 ```bash
-scp -i ~/.ssh/hmdp-keypair.pem \
-  src/main/resources/db/hmdp.sql \
+scp -i ~/.ssh/flash-sale-keypair.pem \
+  src/main/resources/db/schema.sql \
   src/main/resources/db/migration/V2__add_voucher_order_unique.sql \
   ec2-user@$APP_PUBLIC_IP:~/
 
-ssh -i ~/.ssh/hmdp-keypair.pem ec2-user@$APP_PUBLIC_IP bash <<EOF
+ssh -i ~/.ssh/flash-sale-keypair.pem ec2-user@$APP_PUBLIC_IP bash <<EOF
 sudo dnf install -y docker mariadb105
 sudo systemctl enable --now docker
 
 export MYSQL_PWD='<DB_ADMIN_PASSWORD>'
-mysql -h $DB_ENDPOINT -u hmdpadmin \
-  -e 'CREATE DATABASE IF NOT EXISTS hmdp DEFAULT CHARSET utf8mb4;'
-mysql -h $DB_ENDPOINT -u hmdpadmin hmdp < ~/hmdp.sql
-mysql -h $DB_ENDPOINT -u hmdpadmin hmdp < ~/V2__add_voucher_order_unique.sql
+mysql -h $DB_ENDPOINT -u appadmin \
+  -e 'CREATE DATABASE IF NOT EXISTS flash_sale DEFAULT CHARSET utf8mb4;'
+mysql -h $DB_ENDPOINT -u appadmin flash_sale < ~/schema.sql
+mysql -h $DB_ENDPOINT -u appadmin flash_sale < ~/V2__add_voucher_order_unique.sql
 EOF
 ```
 
@@ -332,18 +332,18 @@ EOF
 ECR_REGISTRY=<account-id>.dkr.ecr.us-east-1.amazonaws.com
 ECR_TOKEN=$(aws ecr get-login-password --region us-east-1)
 
-ssh -i ~/.ssh/hmdp-keypair.pem ec2-user@$APP_PUBLIC_IP bash <<EOF
+ssh -i ~/.ssh/flash-sale-keypair.pem ec2-user@$APP_PUBLIC_IP bash <<EOF
 echo '$ECR_TOKEN' | sudo docker login --username AWS --password-stdin $ECR_REGISTRY
-sudo docker pull $ECR_REGISTRY/hmdp-dianping:latest
+sudo docker pull $ECR_REGISTRY/flash-sale-platform:latest
 
-sudo docker run -d --name hmdp-app -p 8081:8081 --restart unless-stopped \
+sudo docker run -d --name flash-sale-app -p 8081:8081 --restart unless-stopped \
   -e DB_HOST=$DB_ENDPOINT \
-  -e DB_USER=hmdpadmin \
+  -e DB_USER=appadmin \
   -e DB_PASSWORD='<DB_ADMIN_PASSWORD>' \
-  -e DB_NAME=hmdp \
+  -e DB_NAME=flash_sale \
   -e REDIS_HOST=$REDIS_ENDPOINT \
   -e MQ_NAME_SERVER=$RMQ_PRIVATE_IP:9876 \
-  $ECR_REGISTRY/hmdp-dianping:latest
+  $ECR_REGISTRY/flash-sale-platform:latest
 EOF
 ```
 
@@ -377,14 +377,14 @@ aws ec2 terminate-instances --instance-ids $APP_INSTANCE $RMQ_INSTANCE
 aws ec2 wait instance-terminated --instance-ids $APP_INSTANCE $RMQ_INSTANCE
 
 # 2. Data stores (slow — ~5-10 min each)
-aws rds delete-db-instance --db-instance-identifier hmdp-mysql \
+aws rds delete-db-instance --db-instance-identifier flash-sale-mysql \
   --skip-final-snapshot --delete-automated-backups
-aws elasticache delete-cache-cluster --cache-cluster-id hmdp-redis
-aws rds wait db-instance-deleted --db-instance-identifier hmdp-mysql
-aws elasticache wait cache-cluster-deleted --cache-cluster-id hmdp-redis
+aws elasticache delete-cache-cluster --cache-cluster-id flash-sale-redis
+aws rds wait db-instance-deleted --db-instance-identifier flash-sale-mysql
+aws elasticache wait cache-cluster-deleted --cache-cluster-id flash-sale-redis
 
-aws rds delete-db-subnet-group --db-subnet-group-name hmdp-db-subnets
-aws elasticache delete-cache-subnet-group --cache-subnet-group-name hmdp-redis-subnets
+aws rds delete-db-subnet-group --db-subnet-group-name flash-sale-db-subnets
+aws elasticache delete-cache-subnet-group --cache-subnet-group-name flash-sale-redis-subnets
 
 # 3. Network plumbing
 for sg in $APP_SG $RMQ_SG $RDS_SG $REDIS_SG; do
@@ -399,7 +399,7 @@ aws ec2 delete-route-table --route-table-id $PUB_RT
 aws ec2 delete-vpc --vpc-id $VPC_ID
 
 # 4. ECR (optional — keeps repo for next deploy)
-# aws ecr delete-repository --repository-name hmdp-dianping --force
+# aws ecr delete-repository --repository-name flash-sale-platform --force
 ```
 
 ---
@@ -414,5 +414,5 @@ aws ec2 delete-vpc --vpc-id $VPC_ID
 | Broker NPE during cleanup | host volume mount permissions (uid 3000 vs ec2-user) | Drop `-v ~/rocketmq/store` and `-v ~/rocketmq/logs` |
 | Broker refuses to accept messages | `diskMaxUsedSpaceRatio` default 75% tripped | Set to 85 in `broker.conf` |
 | `User: mydp is not authorized to perform: ssm:GetParameters` | IAM user lacks SSM | Use `ec2 describe-images` (§5.1) |
-| `Access denied for user 'admin'@...` | RDS master user is `hmdpadmin`, not `admin` | `describe-db-instances` to confirm `MasterUsername` |
+| `Access denied for user 'admin'@...` | RDS master user is `appadmin`, not `admin` | `describe-db-instances` to confirm `MasterUsername` |
 | HTTP 401 on public endpoints | URL has `/api/` prefix | Drop `/api/` — backend routes are unprefixed (nginx adds it) |

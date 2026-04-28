@@ -7,7 +7,7 @@ End-to-end benchmark against the full cloud stack on `us-east-1`, 2026-04-16.
 | Component | Location | Instance / Size |
 |---|---|---|
 | JMeter client | Laptop (San Diego) | — |
-| App (Spring Boot + RocketMQ producer/consumer) | EC2 in public subnet, us-east-1a | t3.small, Docker container `hmdp-dianping:latest` (154 MB, linux/amd64) |
+| App (Spring Boot + RocketMQ producer/consumer) | EC2 in public subnet, us-east-1a | t3.small, Docker container `flash-sale-platform:latest` (154 MB, linux/amd64) |
 | RocketMQ namesrv + broker | EC2 in public subnet, us-east-1a | t3.small, `apache/rocketmq:5.1.4` |
 | MySQL | RDS, private subnet | db.t3.micro, MySQL 8.0 |
 | Redis | ElastiCache, private subnet | cache.t3.micro, Redis 7.x |
@@ -39,14 +39,14 @@ All three rounds: `consistent: true`, `distinct_users == order_count == initial_
 ssh -f -N \
   -L 6389:<REDIS_ENDPOINT>:6379 \
   -L 3310:<DB_ENDPOINT>:3306 \
-  -i ~/.ssh/hmdp-keypair.pem ec2-user@<APP_PUBLIC_IP>
+  -i ~/.ssh/flash-sale-keypair.pem ec2-user@<APP_PUBLIC_IP>
 
 # 2) env for run_baseline.sh
 export BENCHMARK_HOST=<APP_PUBLIC_IP> BENCHMARK_PORT=8081
 export APP_BASE_URL="http://<APP_PUBLIC_IP>:8081"
 export REDIS_HOST=127.0.0.1 REDIS_PORT=6389
 export MYSQL_HOST=127.0.0.1 MYSQL_PORT=3310
-export MYSQL_USER=hmdpadmin MYSQL_PASSWORD="<pw>" MYSQL_DB=hmdp
+export MYSQL_USER=appadmin MYSQL_PASSWORD="<pw>" MYSQL_DB=flash_sale
 export VOUCHER_ID=10 BENCHMARK_STOCK=100 EXPECTED_ORDERS=100
 export THREADS=1000 RAMP_UP_SECONDS=1
 export PYTHON_BIN="$PWD/benchmark/.venv/bin/python"

@@ -6,7 +6,7 @@
 - 并发模型：1000 个并发用户，每个用户 1 次秒杀请求
 - 券与库存：`voucher_id=10`，初始库存 `100`
 - 测量架构：`Lua -> RocketMQ -> SeckillOrderConsumer -> MySQL`
-- 被测应用提交：`e4041cf`（从该提交拉出 clean worktree `/tmp/hmdp-phase3-clean` 后构建，避免工作区其他脏文件污染本次测量）
+- 被测应用提交：`e4041cf`（从该提交拉出 clean worktree `/tmp/flash-sale-phase3-clean` 后构建，避免工作区其他脏文件污染本次测量）
 - 压测日期：2026-04-16
 
 ## Hardware Specs
@@ -19,7 +19,7 @@
 
 ## MySQL / Redis / RocketMQ Config
 
-- MySQL：Homebrew `mysql@8.0`，版本 `8.0.45`，`127.0.0.1:3306/hmdp`
+- MySQL：Homebrew `mysql@8.0`，版本 `8.0.45`，`127.0.0.1:3306/flash_sale`
 - Redis：Homebrew `redis`，版本 `8.6.2`，`127.0.0.1:6380`，无密码
 - Redis 配置文件：`benchmark/redis-local.conf`
 - RocketMQ：本地二进制 `5.1.4`
@@ -30,7 +30,7 @@
   - `brokerIP1=localhost`
   - `JAVA_OPT_EXT=-Xms512m -Xmx512m`
 - Topic hygiene 策略：
-  - 本次没有复用旧 broker store，而是用 fresh store 目录 `/tmp/hmdp-rmq-home-phase3/store`
+  - 本次没有复用旧 broker store，而是用 fresh store 目录 `/tmp/flash-sale-rmq-home-phase3/store`
   - 这样可以直接隔离掉之前开发过程中的历史消息、offset、`%RETRY%seckill-order-consumer-group` backlog
   - Broker 启动后额外发送了 1 条**不计入正式结果**的 warm-up 秒杀请求，用于触发 `seckill-order-topic` 自动创建和 consumer 首次 queue assignment
 
@@ -38,38 +38,38 @@
 
 ```bash
 # 1) 准备 RocketMQ 5.1.4 本地二进制
-mkdir -p /tmp/hmdp-rmq
-cd /tmp/hmdp-rmq
+mkdir -p /tmp/flash-sale-rmq
+cd /tmp/flash-sale-rmq
 curl -L -o rocketmq-all-5.1.4-bin-release.zip \
   https://archive.apache.org/dist/rocketmq/5.1.4/rocketmq-all-5.1.4-bin-release.zip
 unzip -q rocketmq-all-5.1.4-bin-release.zip
 
 # 2) 以 fresh store 目录启动 RocketMQ
-rm -rf /tmp/hmdp-rmq-home-phase3
-mkdir -p /tmp/hmdp-rmq-home-phase3
+rm -rf /tmp/flash-sale-rmq-home-phase3
+mkdir -p /tmp/flash-sale-rmq-home-phase3
 JAVA_HOME=/Library/Java/JavaVirtualMachines/amazon-corretto-11.jdk/Contents/Home \
-  /tmp/hmdp-rmq/rocketmq-all-5.1.4-bin-release/bin/mqnamesrv
+  /tmp/flash-sale-rmq/rocketmq-all-5.1.4-bin-release/bin/mqnamesrv
 JAVA_HOME=/Library/Java/JavaVirtualMachines/amazon-corretto-11.jdk/Contents/Home \
-JAVA_OPT_EXT='-Xms512m -Xmx512m -Duser.home=/tmp/hmdp-rmq-home-phase3' \
-  /tmp/hmdp-rmq/rocketmq-all-5.1.4-bin-release/bin/mqbroker \
+JAVA_OPT_EXT='-Xms512m -Xmx512m -Duser.home=/tmp/flash-sale-rmq-home-phase3' \
+  /tmp/flash-sale-rmq/rocketmq-all-5.1.4-bin-release/bin/mqbroker \
   -n localhost:9876 \
-  -c /Users/ivy_dou/Documents/heimadianping/coding/hm-dianping/docker/rocketmq/broker.conf
+  -c /Users/ivy_dou/Documents/heimadianping/coding/flash-sale-platform/docker/rocketmq/broker.conf
 
 # 3) 校验本地 MySQL / Redis / RocketMQ
-mysql -uroot -e "SELECT VERSION();" hmdp
+mysql -uroot -e "SELECT VERSION();" flash_sale
 redis-cli -p 6380 PING
 NAMESRV_ADDR=127.0.0.1:9876 \
-  /tmp/hmdp-rmq/rocketmq-all-5.1.4-bin-release/bin/mqadmin clusterList -m -n 127.0.0.1:9876
+  /tmp/flash-sale-rmq/rocketmq-all-5.1.4-bin-release/bin/mqadmin clusterList -m -n 127.0.0.1:9876
 
 # 4) 从 clean worktree 构建并启动应用
-git worktree add --detach /tmp/hmdp-phase3-clean e4041cff3d20aaf177b7f89641fcab1d854a732f
-cd /tmp/hmdp-phase3-clean
+git worktree add --detach /tmp/flash-sale-phase3-clean e4041cff3d20aaf177b7f89641fcab1d854a732f
+cd /tmp/flash-sale-phase3-clean
 JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn -DskipTests package
 JAVA_HOME=$(/usr/libexec/java_home -v 17)
-"$JAVA_HOME/bin/java" -jar /tmp/hmdp-phase3-clean/target/hm-dianping-0.0.1-SNAPSHOT.jar
+"$JAVA_HOME/bin/java" -jar /tmp/flash-sale-phase3-clean/target/flash-sale-platform-0.0.1-SNAPSHOT.jar
 
 # 5) 生成 1000 个登录 token
-cd /Users/ivy_dou/Documents/heimadianping/coding/hm-dianping
+cd /Users/ivy_dou/Documents/heimadianping/coding/flash-sale-platform
 benchmark/.venv/bin/python benchmark/prepare_tokens.py \
   --output benchmark/data/tokens.txt \
   --base-url http://127.0.0.1:8081

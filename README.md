@@ -79,7 +79,7 @@ Honest note on latency: the AWS P99 jump is client-side — RTT from a laptop in
 | `v0.1-p5` | AWS deployment runbook (`docs/aws-deploy.md`) |
 | `v0.1-p6` | AWS production benchmark + 3-env comparison + README |
 
-## Resume bullets (what this project demonstrates)
+## Engineering highlights
 
 - **Replaced Redis-Stream-based flash-sale order pipeline with RocketMQ async messaging** (producer in seckill service, `@RocketMQMessageListener` consumer group on `seckill-order-topic`), eliminating the custom polling loop and gaining standard ack/retry/offset semantics. 1000-concurrent 3-round benchmark: zero errors, pending messages drained to 0 on every round (vs. 100 leftover per round on the Redis Stream version).
 - **Made the RocketMQ consumer idempotent under at-least-once delivery** via MySQL unique index `uk_user_voucher (user_id, voucher_id)` + `DuplicateKeyException` fast-ack, keeping exactly-once *effective* order creation without a distributed-transaction coordinator. Verified by a consistency checker comparing DB order count, distinct users, Redis stock, and consumer pending — all matched target in every round.

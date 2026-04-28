@@ -128,7 +128,7 @@ def main():
     parser.add_argument("--mysql-port", type=int, default=int(os.getenv("MYSQL_PORT", "3306")))
     parser.add_argument("--mysql-user", default=os.getenv("MYSQL_USER", "root"))
     parser.add_argument("--mysql-password", default=os.getenv("MYSQL_PASSWORD", ""))
-    parser.add_argument("--mysql-db", default=os.getenv("MYSQL_DB", "hmdp"))
+    parser.add_argument("--mysql-db", default=os.getenv("MYSQL_DB", "flash_sale"))
     parser.add_argument("--redis-host", default=os.getenv("REDIS_HOST", "127.0.0.1"))
     parser.add_argument("--redis-port", type=int, default=int(os.getenv("REDIS_PORT", "6380")))
     parser.add_argument("--redis-password", default=os.getenv("REDIS_PASSWORD", ""))

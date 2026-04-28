@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="hm-dianping seckill baseline" enabled="true">
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="flash-sale-platform seckill baseline" enabled="true">
       <stringProp name="TestPlan.comments">1000并发用户，每个用户发起1次秒杀请求</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>

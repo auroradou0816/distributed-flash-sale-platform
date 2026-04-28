@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.hmdp</groupId>
-    <artifactId>hm-dianping</artifactId>
+    <artifactId>flash-sale-platform</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>Distributed Flash-Sale Order Platform</name>
     <description>Spring Boot flash-sale platform with RocketMQ async order pipeline, idempotent consumers, and AWS deployment</description>
